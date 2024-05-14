@@ -11,13 +11,14 @@
 ---@field kind? UfoFoldingRangeKind
 local FoldingRange = {}
 
-function FoldingRange.new(startLine, endLine, startCharacter, endCharacter, kind)
+function FoldingRange.new(startLine, endLine, startCharacter, endCharacter, kind, metadata)
     local o = {}
     o.startLine = startLine
     o.endLine = endLine
     o.startCharacter = startCharacter
     o.endCharacter = endCharacter
     o.kind = kind
+    o.metadata = metadata
     return o
 end
 

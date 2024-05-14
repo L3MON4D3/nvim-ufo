@@ -163,6 +163,16 @@ function FoldBuffer:syncFoldedLines(winid)
     end
 end
 
+function FoldBuffer:getRange(startLine, endLine)
+	for _, range in ipairs(self.foldRanges) do
+		if range.startLine == startLine and range.endLine == endLine then
+			return range
+		end
+	end
+	-- range not found.
+	return nil
+end
+
 function FoldBuffer:getRangesFromExtmarks()
     local res = {}
     if self.foldedLineCount == 0 then

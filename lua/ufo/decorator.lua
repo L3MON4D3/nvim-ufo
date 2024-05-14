@@ -257,7 +257,8 @@ function Decorator:getVirtTextAndCloseFold(winid, lnum, endLnum, doRender)
                     assert(t == 'number', 'expected a number, got ' .. t)
                     return fb:lineKind(winid, l)
                 end,
-                get_fold_virt_text = getFoldVirtText
+                get_fold_virt_text = getFoldVirtText,
+                range = fb:getRange(lnum-1, endLnum-1),
             })
             wses.foldedTextMaps[lnum] = res
         end
