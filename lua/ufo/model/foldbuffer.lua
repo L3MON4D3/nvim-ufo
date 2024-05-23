@@ -163,14 +163,62 @@ function FoldBuffer:syncFoldedLines(winid)
     end
 end
 
+-- just compare two integers.
+local function cmp(i1, i2)
+	-- lets hope this ends up as one cmp.
+	if i1 < i2 then
+		return -1
+	end
+	if i1 > i2 then
+		return 1
+	end
+	return 0
+end
+local function pos_cmp(pos1, pos2)
+	-- if row is different it determines result, otherwise the column does.
+	return 2 * cmp(pos1[1], pos2[1]) + cmp(pos1[2], pos2[2])
+end
+-- assumption: r1 and r2 don't partially overlap, either one is included in the other, or they don't overlap.
+-- return whether r1 includes r2
+-- r1, r2 are 4-tuple-ranges
+local function range_includes_range(r1, r2)
+	local s1 = { r1[1], r1[2] }
+	local e1 = { r1[3], r1[4] }
+	local s2 = { r2[1], r2[2] }
+	local e2 = { r2[3], r2[4] }
+
+	return pos_cmp(s1, s2) <= 0 and pos_cmp(e2, e1) <= 0
+end
+
+local fold_selector = {
+	shortest = function()
+		local best_range
+		local best_fold
+
+		return {
+			record = function(range, fold)
+				if best_range == nil or range_includes_range(best_range, range) then
+					best_range = range
+					best_fold = fold
+				end
+			end,
+			retrieve = function()
+				return best_fold
+			end
+		}
+	end
+}
+
+-- return smallest range that matches these lines.
+-- This is to preserve as much detail as possible.
 function FoldBuffer:getRange(startLine, endLine)
+	local selector = fold_selector.shortest()
 	for _, range in ipairs(self.foldRanges) do
 		if range.startLine == startLine and range.endLine == endLine then
-			return range
+            selector.record({range.startLine, range.startCharacter, range.endLine, range.endCharacter}, range)
 		end
 	end
-	-- range not found.
-	return nil
+	return selector.retrieve()
 end
 
 function FoldBuffer:getRangesFromExtmarks()
