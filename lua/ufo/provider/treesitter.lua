@@ -93,7 +93,8 @@ local function make_match(range, metadata)
             foldtext_start = metadata.foldtext_start,
             foldtext_start_hl = metadata.foldtext_start_hl,
             foldtext_end = metadata.foldtext_end,
-            foldtext_end_hl = metadata.foldtext_end_hl }}
+            foldtext_end_hl = metadata.foldtext_end_hl,
+            priority = tonumber(metadata.priority) or 1000 } }
 end
 
 local function iterFoldMatches(bufnr, parser, root, rootLang)
