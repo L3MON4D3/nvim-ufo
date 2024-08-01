@@ -204,9 +204,6 @@ function Treesitter.getFolds(bufnr)
     end
     for _, match in ipairs(matches) do
         local start, start_col, stop, stop_col = unpack(match.range)
-        if stop_col == 0 then
-            stop = stop - 1
-        end
         if stop > start then
             table.insert(ranges, foldingrange.new(start, stop, start_col, stop_col, nil, match.metadata))
         end
