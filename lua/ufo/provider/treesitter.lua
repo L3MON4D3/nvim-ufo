@@ -20,15 +20,6 @@ local get_query = assert(vim.treesitter.query.get or vim.treesitter.query.get_qu
 local get_query_files = assert(vim.treesitter.query.get_files or vim.treesitter.query.get_query_files)
 ---@diagnostic enable: deprecated
 
-
--- Backward compatibility for the dummy directive (#make-range!),
--- which no longer exists in nvim-treesitter v1.0+
-if not vim.tbl_contains(vim.treesitter.query.list_directives(), "make-range!") then
-    vim.treesitter.query.add_directive("make-range!", function() end, {})
-end
--- add my own directive.
-vim.treesitter.query.add_directive("make-range-extended!", function() end, {})
-
 local MetaNode = {}
 MetaNode.__index = MetaNode
 
@@ -118,34 +109,10 @@ local function iterFoldMatches(bufnr, parser, root, rootLang)
             end
         end
 
-        -- Add some predicates for testing
-        local preds = q.info.patterns[pattern]
-        if preds then
-            for _, pred in pairs(preds) do
-                if pred[1] == 'make-range!' and type(pred[2]) == 'string' and pred[2] == "fold" and #pred == 4 then
-                    local r1 = {match[pred[3]]:range()}
-                    local r2 = {match[pred[4]]:range()}
-                    table.insert(matches, make_match({r1[1], r1[2], r2[3], r2[4]}, metadata))
-                end
-                if pred[1] == "make-range-extended!" and pred[2] == "fold" then
-                    -- extract node-ranges
-                    local r1 = {match[pred[3]]:range()}
-                    local r2 = {match[pred[7]]:range()}
-
-                    -- extract correct positions
-                    local p1 = pred[4] == "end_" and {r1[3], r1[4]} or {r1[1], r1[2]}
-                    local p2 = pred[8] == "end_" and {r2[3], r2[4]} or {r2[1], r2[2]}
-
-                    -- apply offsets.
-                    p1[1] = p1[1] + pred[5]
-                    p1[2] = p1[2] + pred[6]
-                    p2[1] = p2[1] + pred[9]
-                    p2[2] = p2[2] + pred[10]
-
-                    table.insert(matches, make_match({p1[1], p1[2], p2[1], p2[2]}, metadata))
-                end
-            end
+        if metadata.fold then
+            table.insert(matches, make_match(metadata.fold, metadata))
         end
+
         return matches
     end
 end
