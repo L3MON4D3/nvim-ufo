@@ -27,6 +27,8 @@ local get_query_files = assert(vim.treesitter.query.get_files or vim.treesitter.
 if not vim.tbl_contains(vim.treesitter.query.list_directives(), 'make-range!') then
     vim.treesitter.query.add_directive('make-range!', function() end, {})
 end
+-- add my own directive.
+vim.treesitter.query.add_directive("make-range-extended!", function() end, {})
 
 local MetaNode = {}
 MetaNode.__index = MetaNode
@@ -90,9 +92,14 @@ local function prepareQuery(bufnr, parser, root, rootLang, queryName)
     }
 end
 
-local function getNodesType(nodes)
-    local node = utils.has11() and nodes[1] or nodes
-    return node.type and node:type() or nil
+local function make_match(range, metadata)
+    return {
+        range = range,
+        metadata = {
+            foldtext_start = metadata.foldtext_start,
+            foldtext_start_hl = metadata.foldtext_start_hl,
+            foldtext_end = metadata.foldtext_end,
+            foldtext_end_hl = metadata.foldtext_end_hl }}
 end
 
 local function iterFoldMatches(bufnr, parser, root, rootLang)
@@ -110,32 +117,37 @@ local function iterFoldMatches(bufnr, parser, root, rootLang)
         end
 
         -- Extract capture names from each match
-        for id, nodes in pairs(match) do
-            local m = metadata[id]
-            local node, nType
-            if m and m.range then
-                nType = getNodesType(nodes)
-                node = MetaNode:new(m.range, nType)
-            elseif type(nodes) ~= 'table' then
-                -- old behaviou before 0.11
-                node = nodes
-            elseif #nodes == 1 then
-                node = nodes[1]
-            else
-                nType = getNodesType(nodes)
-                node = MetaNode.from_nodes(nodes[1], nodes[#nodes], nType)
+        for id, node in pairs(match) do
+            if q.captures[id] == "fold" then
+                table.insert(matches, make_match({node:range()}, metadata))
             end
-
-            table.insert(matches, node)
         end
 
         -- Add some predicates for testing
         local preds = q.info.patterns[pattern]
         if preds then
             for _, pred in pairs(preds) do
-                if pred[1] == 'make-range!' and type(pred[2]) == 'string' and #pred == 4 then
-                    local node = MetaNode.from_nodes(match[pred[3]], match[pred[4]])
-                    table.insert(matches, node)
+                if pred[1] == 'make-range!' and type(pred[2]) == 'string' and pred[2] == "fold" and #pred == 4 then
+                    local r1 = {match[pred[3]]:range()}
+                    local r2 = {match[pred[4]]:range()}
+                    table.insert(matches, make_match({r1[1], r1[2], r2[3], r2[4]}, metadata))
+                end
+                if pred[1] == "make-range-extended!" and pred[2] == "fold" then
+                    -- extract node-ranges
+                    local r1 = {match[pred[3]]:range()}
+                    local r2 = {match[pred[7]]:range()}
+
+                    -- extract correct positions
+                    local p1 = pred[4] == "end_" and {r1[3], r1[4]} or {r1[1], r1[2]}
+                    local p2 = pred[8] == "end_" and {r2[3], r2[4]} or {r2[1], r2[2]}
+
+                    -- apply offsets.
+                    p1[1] = p1[1] + pred[5]
+                    p1[2] = p1[2] + pred[6]
+                    p2[1] = p2[1] + pred[9]
+                    p2[2] = p2[2] + pred[10]
+
+                    table.insert(matches, make_match({p1[1], p1[2], p2[1], p2[2]}, metadata))
                 end
             end
         end
@@ -198,16 +210,13 @@ function Treesitter.getFolds(bufnr)
         self.hasProviders[ft] = false
         error('UfoFallbackException')
     end
-    for _, node in ipairs(matches) do
-        if node.range then
-            local start, _, stop, stop_col = node:range()
-            if stop_col == 0 then
-                stop = stop - 1
-            end
-            if stop > start then
-                local type = node.type and node:type() or nil
-                table.insert(ranges, foldingrange.new(start, stop, nil, nil, type))
-            end
+    for _, match in ipairs(matches) do
+        local start, start_col, stop, stop_col = unpack(match.range)
+        if stop_col == 0 then
+            stop = stop - 1
+        end
+        if stop > start then
+            table.insert(ranges, foldingrange.new(start, stop, start_col, stop_col, nil, match.metadata))
         end
     end
     foldingrange.sortRanges(ranges)
