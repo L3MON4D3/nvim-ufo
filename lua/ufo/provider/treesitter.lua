@@ -26,8 +26,6 @@ local get_query_files = assert(vim.treesitter.query.get_files or vim.treesitter.
 if not vim.tbl_contains(vim.treesitter.query.list_directives(), 'make-range!') then
     vim.treesitter.query.add_directive('make-range!', function() end, {})
 end
--- add my own directive.
-vim.treesitter.query.add_directive("make-range-extended!", function() end, {})
 
 local MetaNode = {}
 MetaNode.__index = MetaNode
